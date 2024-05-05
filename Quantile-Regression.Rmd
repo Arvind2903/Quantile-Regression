@@ -1,0 +1,104 @@
+---
+title: "Quantile Regression"
+author: "Arvind Raghavendran"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Importing Libraries
+
+```{r}
+library(quantreg)
+data(mtcars)
+```
+
+Let's just focus on `mpg` and `wt` columns to explore quantile regression models.
+
+# EDA
+```{r}
+plot(mpg ~ wt, data = mtcars, main = "mpg ~ wt")
+```
+The data looks linear. 
+
+# Linear vs Quantile Regression
+
+## Plots
+Let's start with simple linear regression vs median regression ($\tau$=0.5).
+
+```{r}
+plot(mpg ~ wt, data = mtcars, pch = 16, main = "mpg ~ wt")
+lm_model <- lm(mpg ~ wt, data = mtcars)
+rq_model <- rq(mpg ~ wt, data = mtcars)
+abline(lm_model, col = "red", lty = 2)
+abline(rq_model, col = "blue", lty = 2) # Default value of tau is 0.5
+legend("topright", legend = c("lm", "rq"), col = c("red", "blue"), lty = 2)
+```
+Let's explore the model's behavior under the presence of outliers.
+
+## Significance Coefficients
+```{r}
+# Summary of linear regression model
+summary_lm <- summary(lm_model)
+print(summary_lm)
+
+# Summary of quantile regression model
+summary_rq <- summary(rq_model)
+print(summary_rq)
+
+```
+## Interpretation of Linear Regression and Quantile Regression Results
+
+### Linear Regression (lm)
+
+- **Intercept (\( \beta_0 \))**: The intercept estimate is \(37.2851\). This represents the expected value of `mpg` when `wt` (weight) is \(0\), though this might not be practically meaningful.
+- **Weight Coefficient (\( \beta_1 \))**: The coefficient estimate for `wt` is \(-5.3445\). This means that, on average, for each unit increase in weight (\(wt\)), the miles per gallon (\(mpg\)) decreases by approximately \(5.3445\) units.
+- **Statistical Significance**: Both the intercept and the coefficient for `wt` are statistically significant, with p-values \(< 0.001\), indicating strong evidence against the null hypothesis.
+- **Model Fit**: The adjusted \(R^2\) is \(0.7446\), suggesting that approximately \(74.46\%\) of the variance in `mpg` can be explained by the linear relationship with `wt`.
+- **Residuals**: The residuals have a mean close to \(0\) and follow a normal distribution.
+
+### Quantile Regression (rq)
+
+- **Intercept (\( \beta_0 \))**: The intercept estimate is \(34.23224\). This represents the median expected value of `mpg` when `wt` is \(0\) according to the quantile regression.
+- **Weight Coefficient (\( \beta_1 \))**: The coefficient estimate for `wt` is \(-4.53947\). This indicates that, at the median (\(\tau = 0.5\)), for each unit increase in weight (\(wt\)), the median `mpg` decreases by approximately \(4.53947\) units.
+- **Confidence Intervals**: Provided confidence intervals offer a range within which we can be reasonably confident that the true coefficients lie.
+- **Warning Message**: The warning "Solution may be nonunique" suggests that the optimization process might have encountered non-unique solutions, potentially affecting estimate stability, though estimates are still provided.
+
+In summary, both models suggest a negative relationship between weight (`wt`) and miles per gallon (`mpg`), but the quantile regression provides additional insight into the relationship at different quantiles of the response variable.
+
+
+## Presence of outliers
+```{r}
+y <- c(mtcars$mpg, 42, 44)
+x <- c(mtcars$wt, 3, 4)
+plot(y ~ x, pch = 16, main = "mpg ~ wt")
+points(c(5, 4), c(40, 36), pch = 16, col = "dark orange")
+abline(lm_model, col = "red", lty = 2)
+abline(lm(y ~ x), col = "red")
+abline(rq_model, col = "blue", lty = 2)
+abline(rq(y ~ x), col = "blue")
+```
+The orange points are the synthetic outliers we have added. The shift in the red line (linear model) is very apparent due to influence of outliers. However, the median regression model is more robust and barely shifts.
+
+# Fitting Multiple Quantile Plots
+
+```{r}
+colors <- c("#ffe6e6", "#ffcccc", "#ff9999", "#ff6666", "#ff3333",
+            "#ff0000", "#cc0000", "#b30000", "#800000", "#4d0000", "#000000")
+
+plot(mpg ~ wt, data = mtcars, pch = 16, main = "mpg ~ wt")
+multi_rqfit <- rq(mpg ~ wt, data = mtcars, tau = seq(0, 1, by = 0.1))
+# Loop over each coefficient to plot the quantile lines
+for (j in 1:ncol(multi_rqfit$coefficients)) {
+    abline(coef(multi_rqfit)[, j], col = colors[j])
+}
+
+# Add legend with tau values
+legend("topright", legend = seq(0, 1, by = 0.1), col = colors, lty = 1, pch = 16,
+       title = "Tau", cex = 0.8, bg = "white", box.lwd = 1)
+
+
+```
